@@ -3,7 +3,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 let csrf = '', me = null;
 const toast = (m, e) => { const t = document.createElement('div'); t.className = 'toast' + (e ? ' e' : ''); t.textContent = m; t.onclick = () => t.remove(); $('#toasts').append(t); setTimeout(() => t.remove(), 3500); };
 async function api(method, path, body) {
-  const r = await fetch(API_URL + '/api/admin' + path, { method, credentials: 'include', headers: { 'content-type': 'application/json', 'x-csrf-token': csrf }, body: body ? JSON.stringify(body) : undefined });
+  let r; try { r = await fetch(API_URL + '/api/admin' + path, { method, credentials: 'include', headers: { 'content-type': 'application/json', 'x-csrf-token': csrf }, body: body ? JSON.stringify(body) : undefined }); } catch { throw new Error('Cannot reach the API. Check API_URL in config.js and the backend CORS_ORIGINS.'); }
   const j = await r.json().catch(() => ({})); if (r.status === 401 && path !== '/login') { me = null; login(); throw new Error('Session expired'); }
   if (!r.ok) throw new Error(j.error || 'Request failed'); return j;
 }
