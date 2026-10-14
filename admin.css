@@ -17,3 +17,59 @@ label{display:block;margin:12px 0 4px;color:var(--fg2);font-size:.8rem}input,tex
 
 .pw{position:relative}.pw input{padding-right:70px}.eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:transparent;border:1px solid var(--line);color:var(--fg2);border-radius:6px;padding:4px 10px;font:inherit;font-size:.78rem;cursor:pointer}.eye:hover{color:var(--fg);border-color:var(--b)}
 .ok{color:var(--g)}.alt{text-align:center;margin-top:16px;color:var(--fg3)}.muted{color:var(--fg2)}
+
+/* ================= EXILE ADMIN MOTION (150-300ms, transform/opacity only) ================= */
+:root{--ease:cubic-bezier(.2,.8,.2,1)}
+#app{position:relative;z-index:1}
+#aurora{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;opacity:0;transition:opacity .6s}body.auth #aurora{opacity:1}
+#aurora i{position:absolute;width:60vmax;height:60vmax;border-radius:50%;will-change:transform}
+#aurora i:nth-child(1){left:-22vmax;top:-30vmax;background:radial-gradient(circle,rgba(22,131,255,.14),transparent 65%);animation:d1 30s ease-in-out infinite alternate}
+#aurora i:nth-child(2){right:-26vmax;bottom:-34vmax;background:radial-gradient(circle,rgba(0,208,132,.12),transparent 65%);animation:d2 36s ease-in-out infinite alternate}
+@keyframes d1{to{transform:translate3d(22vmax,14vmax,0) scale(1.15)}}@keyframes d2{to{transform:translate3d(-20vmax,-12vmax,0) scale(1.2)}}
+#lnet{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;opacity:0;transition:opacity .8s}body.auth #lnet{opacity:.85}
+/* loader */
+.boot{min-height:100vh;display:grid;place-content:center;justify-items:center;gap:22px;animation:fade .3s .15s both}
+.bl{position:relative;width:96px;height:96px;display:grid;place-items:center}.bl:before{content:"";position:absolute;inset:-34px;border-radius:50%;background:radial-gradient(circle,rgba(0,208,132,.24),rgba(22,131,255,.14) 45%,transparent 70%);animation:glow 2.2s ease-in-out infinite}
+.bl img{position:relative;width:96px;-webkit-mask-image:radial-gradient(circle,#000 48%,transparent 71%);mask-image:radial-gradient(circle,#000 48%,transparent 71%);mix-blend-mode:screen}
+.ring{position:absolute;inset:-13px;border-radius:50%;background:conic-gradient(from 0deg,transparent 0 30%,var(--g) 60%,var(--b) 90%,transparent);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 2px),#000 calc(100% - 1px));mask:radial-gradient(farthest-side,transparent calc(100% - 2px),#000 calc(100% - 1px));animation:spin 1.3s linear infinite}
+.bt{font-weight:700;letter-spacing:.5em;font-size:.8rem;color:var(--fg2);padding-left:.5em}
+@keyframes spin{to{transform:rotate(360deg)}}@keyframes glow{50%{opacity:.5;transform:scale(1.12)}}@keyframes fade{from{opacity:0}}
+/* login */
+.login{position:relative;overflow:hidden;background:rgba(14,14,14,.74);border:1px solid var(--line);border-radius:18px;backdrop-filter:blur(10px);box-shadow:0 24px 70px rgba(0,0,0,.65);animation:cardin .5s var(--ease) both}
+.login:before{content:"";position:absolute;top:0;left:0;width:40%;height:2px;background:linear-gradient(90deg,transparent,var(--g),var(--b),transparent);animation:sweep 3.6s ease-in-out infinite}
+@keyframes sweep{from{transform:translateX(-100%)}to{transform:translateX(250%)}}@keyframes cardin{from{opacity:0;transform:translateY(18px) scale(.97)}}
+.login>*{animation:kin .45s var(--ease) both}.login>:nth-child(1){animation-delay:.08s}.login>:nth-child(2){animation-delay:.14s}.login>:nth-child(3){animation-delay:.2s}.login>:nth-child(4){animation-delay:.26s}.login>:nth-child(5){animation-delay:.32s}.login>:nth-child(6){animation-delay:.38s}.login>:nth-child(7){animation-delay:.44s}.login>:nth-child(8){animation-delay:.5s}.login>:nth-child(n+9){animation-delay:.56s}
+.login img{-webkit-mask-image:radial-gradient(circle,#000 48%,transparent 71%);mask-image:radial-gradient(circle,#000 48%,transparent 71%);mix-blend-mode:screen;animation:kin .45s var(--ease) .08s both,float 6s ease-in-out .6s infinite}
+@keyframes float{50%{transform:translateY(-5px)}}@keyframes kin{from{opacity:0;transform:translateY(10px)}}
+.shake{animation:shake .4s ease both!important}@keyframes shake{20%{transform:translateX(-9px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(3px)}}
+/* controls (150ms) */
+input,textarea,select{transition:border-color .15s,box-shadow .15s,background .15s}input:focus,textarea:focus,select:focus{outline:0;border-color:var(--g);box-shadow:0 0 0 3px rgba(0,208,132,.16)}
+label{transition:color .15s}
+.btn{transition:transform .15s var(--ease),border-color .15s,background .15s,box-shadow .2s,opacity .2s;position:relative;overflow:hidden}.btn:hover{border-color:var(--b)}.btn.p:hover{box-shadow:0 0 18px rgba(0,208,132,.35);transform:translateY(-1px)}.btn:active{transform:scale(.97)}
+.btn.busy:before{content:"";display:inline-block;width:12px;height:12px;margin-right:8px;vertical-align:-2px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite}
+.btn.done,.btn.fail{opacity:1!important}.btn.done{animation:okpulse .5s var(--ease)}.btn.fail{animation:shake .4s both;background:var(--err);border-color:var(--err);color:#000}
+@keyframes okpulse{0%{box-shadow:0 0 0 0 rgba(0,208,132,.6)}100%{box-shadow:0 0 0 14px rgba(0,208,132,0)}}
+.eye{transition:color .15s,border-color .15s,background .15s}
+/* shell: sliding active indicator + staggered entrance */
+aside nav{position:relative}.ind{position:absolute;left:-6px;top:0;width:3px;height:22px;border-radius:3px;background:linear-gradient(var(--g),var(--b));box-shadow:0 0 10px rgba(0,208,132,.6);opacity:0;transition:transform .28s var(--ease),opacity .2s}
+aside a{position:relative;transition:background .15s,color .15s,transform .2s var(--ease)}aside a:hover{transform:translateX(3px)}aside a.on{box-shadow:none}
+aside img{-webkit-mask-image:radial-gradient(circle,#000 48%,transparent 71%);mask-image:radial-gradient(circle,#000 48%,transparent 71%);mix-blend-mode:screen}
+.shell.enter aside{animation:asidein .35s var(--ease) both}.shell.enter aside a{animation:kin .35s var(--ease) both;animation-delay:calc(60ms + var(--i,0)*22ms)}@keyframes asidein{from{opacity:0;transform:translateX(-16px)}}
+/* page views */
+main.vw{animation:viewin .24s var(--ease) both}@keyframes viewin{from{opacity:0;transform:translateY(8px)}}
+.vw .k,.vw .bar,.vw tr{animation:kin .3s var(--ease) both;animation-delay:calc(var(--i,0)*35ms)}.vw .bar i{animation-delay:calc(var(--i,0)*35ms + 120ms);animation-duration:.5s;animation-timing-function:var(--ease)}.vw .days i{animation-duration:.45s;animation-timing-function:var(--ease);animation-delay:calc(var(--i,0)*14ms)}
+.k{transition:border-color .2s,transform .2s var(--ease)}.k:hover{border-color:rgba(0,208,132,.5);transform:translateY(-2px)}.days i{transition:filter .15s}.days i:hover{filter:brightness(1.4)}
+tr{transition:background .12s}tr:hover td{background:rgba(255,255,255,.025)}
+.dot{display:inline-block;width:8px;height:8px;margin-right:8px;border-radius:50%;background:var(--g);animation:pulse 2.4s infinite}@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(0,208,132,.55)}70%,100%{box-shadow:0 0 0 8px rgba(0,208,132,0)}}
+/* skeleton */
+.sk{background:linear-gradient(90deg,#141414 25%,#1f1f1f 50%,#141414 75%);background-size:200% 100%;animation:sh 1.4s infinite;border-radius:8px;height:1em;margin:10px 0}@keyframes sh{to{background-position:-200% 0}}
+/* overlays: exit faster than enter */
+.modal{animation:fade .18s both;backdrop-filter:blur(5px)}.modal>div{animation:pop .24s var(--ease) both}.modal.out{animation:fadeout .15s both}.modal.out>div{animation:popout .15s both}
+@keyframes pop{from{opacity:0;transform:scale(.92) translateY(10px)}}@keyframes fadeout{to{opacity:0}}@keyframes popout{to{opacity:0;transform:scale(.96)}}
+.toast{position:relative;overflow:hidden;animation:toastin .3s var(--ease) both}.toast.out{animation:toastout .18s ease both}.toast:after{content:"";position:absolute;left:0;bottom:0;height:2px;width:100%;background:var(--g);transform-origin:left;animation:drain 3.5s linear both}.toast.e:after{background:var(--err)}
+@keyframes toastin{from{opacity:0;transform:translateX(32px)}}@keyframes toastout{to{opacity:0;transform:translateX(24px)}}@keyframes drain{to{transform:scaleX(0)}}
+/* touch + small screens */
+@media(pointer:coarse){.btn,input,select,aside a{min-height:44px}.eye{min-height:36px}}
+@media(max-width:800px){.ind{display:none}aside a.on{box-shadow:inset 2px 0 var(--g)}}
+@media(prefers-reduced-motion:reduce){#aurora i{animation:none!important}.ring,.dot,.login:before,.login img{animation:none!important}}
+.login img{width:96px;height:auto;margin-bottom:4px}
