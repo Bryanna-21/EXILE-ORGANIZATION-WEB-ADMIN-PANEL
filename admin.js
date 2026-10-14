@@ -34,10 +34,42 @@ const field = ([n, t], v) => {
 const collect = fs => Object.fromEntries(fs.map(([n, t]) => { const e = $('#f_' + n); return [n, t === 'bool' ? e.checked : t === 'lines' ? e.value.split('\n').map(s => s.trim()).filter(Boolean) : t === 'num' ? (e.value === '' ? null : +e.value) : e.value]; }));
 const view = (h) => { app.querySelector('main').innerHTML = h; };
 
-function login(err = '') {
-  app.innerHTML = `<div class="login"><img src="logo.png" width="72" alt="Exile"><h1>Exile Admin</h1><label for="em">Email</label><input id="em" type="email" autocomplete="username"><label for="pw">Password</label><input id="pw" type="password" autocomplete="current-password"><p class="err" id="er">${esc(err)}</p><button class="btn p" id="go">Sign in</button></div>`;
-  const go = async () => { const b = $('#go'); b.disabled = true; b.textContent = 'Signing in...'; try { const r = await api('POST', '/login', { email: $('#em').value, password: $('#pw').value }); me = r; csrf = r.csrf; shell(); nav('dash'); } catch (e) { $('#er').textContent = e.message; b.disabled = false; b.textContent = 'Sign in'; } };
+// Password input with a Show/Hide toggle so you can see what you typed.
+const pwField = (id, label, auto) => `<label for="${id}">${label}</label><div class="pw"><input id="${id}" type="password" autocomplete="${auto}"><button type="button" class="eye" data-for="${id}" aria-label="Show password" aria-pressed="false">Show</button></div>`;
+function wireEyes(root = app) {
+  root.querySelectorAll('.eye').forEach(btn => btn.onclick = () => {
+    const i = $('#' + btn.dataset.for), show = i.type === 'password'; i.type = show ? 'text' : 'password';
+    btn.textContent = show ? 'Hide' : 'Show'; btn.setAttribute('aria-pressed', show); btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password'); i.focus();
+  });
+}
+function login(msg = '', ok = false) {
+  app.innerHTML = `<div class="login"><img src="logo.png" width="72" alt="Exile"><h1>Exile Admin</h1><label for="em">Email</label><input id="em" type="email" autocomplete="username">${pwField('pw', 'Password', 'current-password')}<p class="${ok ? 'ok' : 'err'}" id="er" role="status">${esc(msg)}</p><button class="btn p" id="go">Sign in</button><p class="alt"><a href="#" id="fg">Forgot password?</a></p></div>`;
+  wireEyes();
+  const go = async () => { const b = $('#go'); b.disabled = true; b.textContent = 'Signing in...'; try { const r = await api('POST', '/login', { email: $('#em').value, password: $('#pw').value }); me = r; csrf = r.csrf; shell(); nav('dash'); } catch (e) { $('#er').className = 'err'; $('#er').textContent = e.message; b.disabled = false; b.textContent = 'Sign in'; } };
   $('#go').onclick = go; $('#pw').onkeydown = e => e.key === 'Enter' && go();
+  $('#fg').onclick = e => { e.preventDefault(); forgot($('#em').value); };
+}
+// Forgot password: step 1 asks for the email, step 2 takes the 6-digit code + new password.
+function forgot(prefill = '') {
+  app.innerHTML = `<div class="login"><img src="logo.png" width="72" alt="Exile"><h1>Reset password</h1><p class="muted">Enter your admin email. We'll send a 6-digit code that expires in 10 minutes.</p><label for="em">Email</label><input id="em" type="email" autocomplete="username" value="${esc(prefill)}"><p class="err" id="er" role="status"></p><button class="btn p" id="go">Send code</button><p class="alt"><a href="#" id="bk">Back to sign in</a></p></div>`;
+  $('#bk').onclick = e => { e.preventDefault(); login(); };
+  const send = async () => { const b = $('#go'), em = $('#em').value.trim(); if (!em) return; b.disabled = true; b.textContent = 'Sending...'; try { await api('POST', '/forgot', { email: em }); resetStep(em, 'If that email belongs to an admin, a code is on its way.'); } catch (e) { $('#er').textContent = e.message; b.disabled = false; b.textContent = 'Send code'; } };
+  $('#go').onclick = send; $('#em').onkeydown = e => e.key === 'Enter' && send();
+}
+function resetStep(email, note = '') {
+  app.innerHTML = `<div class="login"><img src="logo.png" width="72" alt="Exile"><h1>Enter code</h1><p class="ok" id="nt">${esc(note)}</p><label for="cd">6-digit code</label><input id="cd" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]*">${pwField('np', 'New password (12+ characters)', 'new-password')}${pwField('np2', 'Confirm new password', 'new-password')}<p class="err" id="er" role="status"></p><button class="btn p" id="go">Reset password</button><p class="alt"><a href="#" id="rs">Resend code</a> &middot; <a href="#" id="bk">Back to sign in</a></p></div>`;
+  wireEyes();
+  $('#bk').onclick = e => { e.preventDefault(); login(); };
+  $('#rs').onclick = async e => { e.preventDefault(); try { await api('POST', '/forgot', { email }); $('#nt').textContent = 'A new code has been sent (if the email is registered).'; $('#er').textContent = ''; } catch (x) { $('#er').textContent = x.message; } };
+  const go = async () => {
+    const b = $('#go'), er = $('#er'); er.textContent = '';
+    if ($('#np').value.length < 12) return er.textContent = 'Password must be at least 12 characters.';
+    if ($('#np').value !== $('#np2').value) return er.textContent = 'Passwords do not match.';
+    b.disabled = true; b.textContent = 'Resetting...';
+    try { await api('POST', '/reset', { email, code: $('#cd').value.trim(), password: $('#np').value }); login('Password changed. Sign in with your new password.', true); }
+    catch (e) { er.textContent = e.message; b.disabled = false; b.textContent = 'Reset password'; }
+  };
+  $('#go').onclick = go; $('#np2').onkeydown = e => e.key === 'Enter' && go();
 }
 function shell() {
   app.innerHTML = `<div class="shell"><aside><img src="logo.png" alt="Exile"><nav aria-label="Admin">${[['dash', 'Dashboard'], ...Object.entries(ENT).map(([k, v]) => [k, v.label]), ['portfolio', 'Portfolio'], ['settings', 'Site settings'], ['audit', 'Audit log'], ['account', 'Account']].map(([k, l]) => `<a href="#${k}" data-k="${k}">${l}</a>`).join('')}</nav><p class="row"><small>${esc(me.email)}</small></p><button class="btn" id="out">Sign out</button></aside><main></main></div>`;
@@ -66,7 +98,7 @@ const SCREENS = {
   },
   async audit() { const r = await api('GET', '/audit'); view(`<h1>Audit log</h1><div class="tw"><table><tr><th>Time</th><th>Admin</th><th>Action</th><th>Entity</th><th>Meta</th></tr>${r.map(x => `<tr><td>${esc(x.ts)}</td><td>${x.admin_id}</td><td>${esc(x.action)}</td><td>${esc(x.entity)} ${esc(x.entity_id)}</td><td>${esc(x.meta)}</td></tr>`).join('')}</table></div>`); },
   async account() {
-    view(`<h1>Account</h1><label for="cu">Current password</label><input id="cu" type="password"><label for="nx">New password (12+ chars)</label><input id="nx" type="password"><div class="row"><button class="btn p" id="sv">SAVE</button></div>`);
+    view(`<h1>Account</h1>${pwField('cu', 'Current password', 'current-password')}${pwField('nx', 'New password (12+ chars)', 'new-password')}<div class="row"><button class="btn p" id="sv">SAVE</button></div>`); wireEyes();
     $('#sv').onclick = e => withState(e.target, async () => { await api('POST', '/password', { current: $('#cu').value, next: $('#nx').value }); $('#cu').value = $('#nx').value = ''; });
   },
 };

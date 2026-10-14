@@ -6,3 +6,6 @@ Separate static SPA (`noindex`). Talks only to `API_URL/api/admin/*` with an Htt
 - **Screens:** Dashboard (totals, 30-day trend, by product/platform/version/country, recent downloads, system, admin activity) · Products · Apps · Releases · QR (view/copy/download PNG/regenerate) · Exile Log · Research · Journal · Portfolio (+projects) · Links · Media (URLs) · Site settings · Audit log · Account (password).
 - **Feedback:** SAVE → SAVING... → SAVED ✓ / SAVE FAILED; deletes need a confirmation dialog then a toast.
 - **Limitations:** plain forms (no rich-text editor); list screens show raw IDs (enter `product_id`/`application_id` manually); no file uploads.
+
+## Sign-in helpers
+Password fields have a Show/Hide button. "Forgot password?" sends a 6-digit code (needs the backend's `RESEND_API_KEY`), then asks for the code and a new 12+ character password.
