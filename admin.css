@@ -99,3 +99,12 @@ html{-webkit-text-size-adjust:100%}img,canvas{max-width:100%}main{min-width:0;ov
 }
 @media(max-height:480px) and (orientation:landscape){.login{margin:2vh auto}.login img{width:56px}}
 @media(max-width:800px){.eye{min-height:40px;min-width:56px}}
+
+/* ---- authenticator panel ---- */
+.steps{margin:14px 0 0;padding-left:20px;display:grid;gap:18px}.steps li::marker{color:var(--g);font-weight:700}.steps .qr{display:block;width:max-content;margin:12px 0 0}
+#tk,.codes code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#0a0a0a;border:1px solid var(--line);border-radius:8px;padding:6px 10px;letter-spacing:.08em}#tk{display:inline-block;margin:6px 8px 6px 0;word-break:break-all}
+.codes{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:14px 0;max-width:520px}.codes code{text-align:center;font-size:1rem;color:var(--fg)}
+.warn{color:var(--warn)}label.chk{display:flex;align-items:center;gap:10px;margin:14px 0;color:var(--fg)}label.chk input{flex:none}
+#tp>p{margin:8px 0}#tp{max-width:520px}#tp .dot{vertical-align:middle}
+.vw #tp .codes code{animation:kin .3s var(--ease) both}
+.steps .qr{color:#333;font-size:.85rem;min-width:200px;min-height:60px}

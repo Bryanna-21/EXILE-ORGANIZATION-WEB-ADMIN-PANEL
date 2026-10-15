@@ -65,9 +65,27 @@ function login(msg = '', ok = false) {
   $('#fg').onclick = e => { e.preventDefault(); forgot($('#em').value); };
 }
 // Forgot password: step 1 asks for the email, step 2 takes the 6-digit code + new password.
+// Main reset screen: email + authenticator (or recovery) code + new password, all on one page. No email service needed.
 function forgot(prefill = '') {
-  app.innerHTML = `<div class="login"><img src="logo.png" width="72" alt="Exile"><h1>Reset password</h1><p class="muted">Enter your admin email. We'll send a 6-digit code that expires in 10 minutes.</p><label for="em">Email</label><input id="em" type="email" autocomplete="username" value="${esc(prefill)}"><p class="err" id="er" role="status"></p><button class="btn p" id="go">Send code</button><p class="alt"><a href="#" id="bk">Back to sign in</a></p></div>`;
+  app.innerHTML = `<div class="login"><img src="logo.png" width="72" alt="Exile"><h1>Reset password</h1><p class="muted">Enter the 6-digit code from your authenticator app, or one of your recovery codes.</p><label for="em">Email</label><input id="em" type="email" autocomplete="username" value="${esc(prefill)}"><label for="cd">Authenticator or recovery code</label><input id="cd" autocomplete="one-time-code" autocapitalize="off" spellcheck="false" maxlength="9" placeholder="123456 or a1b2-c3d4">${pwField('np', 'New password (12+ characters)', 'new-password')}${pwField('np2', 'Confirm new password', 'new-password')}<p class="err" id="er" role="status"></p><button class="btn p" id="go">Reset password</button><p class="alt"><a href="#" id="bk">Back to sign in</a> &middot; <a href="#" id="ml">Email me a code instead</a></p></div>`;
+  wireEyes();
   $('#bk').onclick = e => { e.preventDefault(); login(); };
+  $('#ml').onclick = e => { e.preventDefault(); emailForgot($('#em').value); };
+  const go = async () => {
+    const b = $('#go'), er = $('#er'); er.textContent = '';
+    if (!$('#em').value.trim() || !$('#cd').value.trim()) { shake($('.login')); return er.textContent = 'Enter your email and a code.'; }
+    if ($('#np').value.length < 12) { shake($('.login')); return er.textContent = 'Password must be at least 12 characters.'; }
+    if ($('#np').value !== $('#np2').value) { shake($('.login')); return er.textContent = 'Passwords do not match.'; }
+    b.disabled = true; b.classList.add('busy'); b.textContent = 'Resetting...';
+    try { await api('POST', '/reset', { email: $('#em').value.trim(), code: $('#cd').value.trim(), password: $('#np').value }); login('Password changed. Sign in with your new password.', true); }
+    catch (e) { er.textContent = e.message; b.disabled = false; b.classList.remove('busy'); b.textContent = 'Reset password'; shake($('.login')); }
+  };
+  $('#go').onclick = go; $('#np2').addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+}
+// Fallback: email a 6-digit code (only works if a mail service is configured on the backend).
+function emailForgot(prefill = '') {
+  app.innerHTML = `<div class="login"><img src="logo.png" width="72" alt="Exile"><h1>Email me a code</h1><p class="muted">Enter your admin email. If mail is set up, we'll send a 6-digit code that expires in 10 minutes.</p><label for="em">Email</label><input id="em" type="email" autocomplete="username" value="${esc(prefill)}"><p class="err" id="er" role="status"></p><button class="btn p" id="go">Send code</button><p class="alt"><a href="#" id="bk">Back</a></p></div>`;
+  $('#bk').onclick = e => { e.preventDefault(); forgot($('#em').value); };
   const send = async () => { const b = $('#go'), em = $('#em').value.trim(); if (!em) return; b.disabled = true; b.classList.add('busy'); b.textContent = 'Sending...'; try { await api('POST', '/forgot', { email: em }); resetStep(em, 'If that email belongs to an admin, a code is on its way.'); } catch (e) { $('#er').textContent = e.message; b.disabled = false; b.classList.remove('busy'); b.textContent = 'Send code'; shake($('.login')); } };
   $('#go').onclick = send; $('#em').addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
 }
@@ -127,10 +145,46 @@ const SCREENS = {
   },
   async audit() { const r = await api('GET', '/audit'); view(`<h1>Audit log</h1><div class="tw"><table><tr><th>Time</th><th>Admin</th><th>Action</th><th>Entity</th><th>Meta</th></tr>${r.map(x => `<tr><td>${esc(x.ts)}</td><td>${x.admin_id}</td><td>${esc(x.action)}</td><td>${esc(x.entity)} ${esc(x.entity_id)}</td><td>${esc(x.meta)}</td></tr>`).join('')}</table></div>`); },
   async account() {
-    view(`<h1>Account</h1>${pwField('cu', 'Current password', 'current-password')}${pwField('nx', 'New password (12+ chars)', 'new-password')}<div class="row"><button class="btn p" id="sv">SAVE</button></div>`); wireEyes();
+    const st = await api('GET', '/me');
+    view(`<h1>Account</h1>${pwField('cu', 'Current password', 'current-password')}${pwField('nx', 'New password (12+ chars)', 'new-password')}<div class="row"><button class="btn p" id="sv">SAVE</button></div><h2>Authenticator</h2><div id="tp"></div>`); wireEyes();
     $('#sv').onclick = e => withState(e.target, async () => { await api('POST', '/password', { current: $('#cu').value, next: $('#nx').value }); $('#cu').value = $('#nx').value = ''; });
+    totpPanel(st.totp);
   },
 };
+// ---- Authenticator (TOTP) panel: one-time codes with no outside service ----
+const ensureQR = () => new Promise((ok, no) => { if (window.QRCode) return ok(); const t = setTimeout(no, 7000), s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'; s.onload = () => { clearTimeout(t); ok(); }; s.onerror = () => { clearTimeout(t); no(); }; document.head.append(s); });
+function totpPanel(on) {
+  const box = $('#tp'); if (!box) return;
+  if (on) {
+    box.innerHTML = `<p class="ok"><i class="dot"></i>Enabled. A code from your authenticator app (or a recovery code) can reset a forgotten password.</p><p class="muted">To turn it off, confirm your password and a current code.</p>${pwField('dp', 'Password', 'current-password')}<label for="dc">Current 6-digit code</label><input id="dc" inputmode="numeric" maxlength="6" autocomplete="one-time-code"><div class="row"><button class="btn d" id="dis">Disable authenticator</button></div>`;
+    wireEyes(box);
+    $('#dis').onclick = async e => { const b = e.target; b.disabled = true; try { await api('POST', '/totp/disable', { password: $('#dp').value, code: $('#dc').value.trim() }); toast('Authenticator disabled'); totpPanel(false); } catch (x) { toast(x.message, 1); shake(box); b.disabled = false; } };
+    return;
+  }
+  box.innerHTML = `<p class="muted">Add an authenticator app (Google Authenticator, Microsoft Authenticator, Authy, 1Password and similar). It lets you reset a forgotten password with no email service.</p><div class="row"><button class="btn p" id="st">Set up authenticator</button></div>`;
+  $('#st').onclick = async e => { const b = e.target; b.disabled = true; b.classList.add('busy'); try { totpEnroll(await api('POST', '/totp/setup', {})); } catch (x) { toast(x.message, 1); b.disabled = false; b.classList.remove('busy'); } };
+}
+async function totpEnroll(r) {
+  const box = $('#tp'), key = r.secret.match(/.{1,4}/g).join(' ');
+  box.innerHTML = `<ol class="steps"><li>Open your authenticator app and scan this QR code.<div class="qr" id="tq"><span class="dots muted">Loading QR…</span></div></li><li>Can't scan? Enter this key by hand: <code id="tk">${esc(key)}</code> <button class="btn" id="tkc" type="button">Copy</button></li><li>Type the 6-digit code the app now shows:<input id="tc" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="123456"></li></ol><p class="err" id="te" role="status"></p><div class="row"><button class="btn p" id="tv">Verify and enable</button><button class="btn" id="tx">Cancel</button></div>`;
+  $('#tkc').onclick = () => navigator.clipboard.writeText(r.secret).then(() => toast('Key copied'), () => toast('Copy failed', 1));
+  $('#tx').onclick = () => totpPanel(false);
+  ensureQR().then(() => { const q = $('#tq'); if (q) { q.innerHTML = ''; new QRCode(q, { text: r.uri, width: 200, height: 200 }); } }).catch(() => { const q = $('#tq'); if (q) q.textContent = 'QR could not load. Use the key below instead.'; });
+  const go = async () => {
+    const b = $('#tv'); $('#te').textContent = ''; b.disabled = true; b.classList.add('busy');
+    try { const j = await api('POST', '/totp/enable', { code: $('#tc').value.trim() }); totpRecovery(j.recovery); }
+    catch (e) { $('#te').textContent = e.message; shake(box); b.disabled = false; b.classList.remove('busy'); }
+  };
+  $('#tv').onclick = go; $('#tc').addEventListener('keydown', e => { if (e.key === 'Enter') go(); }); $('#tc').focus();
+}
+function totpRecovery(codes) {
+  const box = $('#tp'), text = 'Exile Admin recovery codes\nEach code works once. Keep them somewhere safe and private.\n\n' + codes.join('\n') + '\n';
+  box.innerHTML = `<p class="ok"><i class="dot"></i>Authenticator enabled.</p><p class="warn">Save these recovery codes now. If you lose your phone, each one resets your password once. They will not be shown again.</p><div class="codes">${codes.map(c => `<code>${esc(c)}</code>`).join('')}</div><div class="row"><button class="btn" id="rcc" type="button">Copy all</button><button class="btn" id="rcd" type="button">Download .txt</button></div><label class="chk"><input type="checkbox" id="rck"> I have saved these codes somewhere safe</label><div class="row"><button class="btn p" id="rdn" disabled>Done</button></div>`;
+  $('#rcc').onclick = () => navigator.clipboard.writeText(codes.join('\n')).then(() => toast('Recovery codes copied'), () => toast('Copy failed', 1));
+  $('#rcd').onclick = () => { const l = document.createElement('a'); l.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' })); l.download = 'exile-admin-recovery-codes.txt'; l.click(); setTimeout(() => URL.revokeObjectURL(l.href), 2000); };
+  $('#rck').onchange = e => { $('#rdn').disabled = !e.target.checked; };
+  $('#rdn').onclick = () => totpPanel(true);
+}
 async function list(k, off = 0) {
   const E = ENT[k], r = await api('GET', `/${k}?limit=25&offset=${off}`);
   view(`<h1>${E.label}</h1><div class="row"><button class="btn p" id="add">+ Add</button></div><div class="tw"><table><tr>${E.cols.map(c => `<th>${c}</th>`).join('')}<th></th></tr>${r.rows.map(x => `<tr>${E.cols.map(c => `<td>${esc(x[c])}</td>`).join('')}<td><button class="btn" data-e="${x.id}">Edit</button>${E.qr ? ` <button class="btn" data-q="${x.id}">QR</button>` : ''}</td></tr>`).join('')}</table></div>
