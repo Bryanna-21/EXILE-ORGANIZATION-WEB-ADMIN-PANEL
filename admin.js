@@ -87,7 +87,8 @@ function resetStep(email, note = '') {
   $('#go').onclick = go; $('#np2').addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
 }
 function shell() {
-  app.innerHTML = `<div class="shell enter"><aside><img src="logo.png" alt="Exile"><nav aria-label="Admin"><i class="ind" aria-hidden="true"></i>${[['dash', 'Dashboard'], ...Object.entries(ENT).map(([k, v]) => [k, v.label]), ['portfolio', 'Portfolio'], ['settings', 'Site settings'], ['audit', 'Audit log'], ['account', 'Account']].map(([k, l], i) => `<a href="#${k}" data-k="${k}" style="--i:${i}">${l}</a>`).join('')}</nav><p class="row"><small>${esc(me.email)}</small></p><button class="btn" id="out">Sign out</button></aside><main></main></div>`;
+  app.innerHTML = `<div class="shell enter"><header class="mbar"><button type="button" id="mnu" aria-label="Open menu" aria-expanded="false" aria-controls="side">☰</button><img src="logo.png" alt="" width="28" height="28"><b id="mt">Dashboard</b></header><div class="scrim" id="scrim"></div><aside id="side"><img src="logo.png" alt="Exile"><nav aria-label="Admin"><i class="ind" aria-hidden="true"></i>${[['dash', 'Dashboard'], ...Object.entries(ENT).map(([k, v]) => [k, v.label]), ['portfolio', 'Portfolio'], ['settings', 'Site settings'], ['audit', 'Audit log'], ['account', 'Account']].map(([k, l], i) => `<a href="#${k}" data-k="${k}" style="--i:${i}">${l}</a>`).join('')}</nav><p class="row"><small>${esc(me.email)}</small></p><button class="btn" id="out">Sign out</button></aside><main></main></div>`;
+  $('#mnu').onclick = () => setMenu(!app.querySelector('.shell').classList.contains('open')); $('#scrim').onclick = () => setMenu(false);
   $('#out').onclick = async () => { try { await api('POST', '/logout'); } catch {} me = null; login(); };
   app.querySelectorAll('aside a').forEach(a => a.onclick = e => { e.preventDefault(); nav(a.dataset.k); });
 }
@@ -96,8 +97,12 @@ function moveInd() {
   i.style.transform = `translateY(${a.offsetTop + (a.offsetHeight - 22) / 2}px)`; i.style.opacity = 1;
 }
 const SK = '<div class="sk" style="width:38%;height:26px"></div><div class="g">' + '<div class="k"><div class="sk" style="height:26px;width:55%"></div><div class="sk" style="height:10px;width:80%"></div></div>'.repeat(4) + '</div><div class="sk" style="height:140px;margin-top:22px"></div><div class="sk" style="height:14px"></div><div class="sk" style="height:14px;width:70%"></div>';
+function setMenu(o) { const s = app.querySelector('.shell'); if (!s) return; s.classList.toggle('open', o); const b = $('#mnu'); if (b) { b.setAttribute('aria-expanded', o); b.setAttribute('aria-label', o ? 'Close menu' : 'Open menu'); } document.body.classList.toggle('noscroll', o); }
+addEventListener('keydown', e => e.key === 'Escape' && setMenu(false));
+matchMedia('(min-width: 801px)').addEventListener('change', e => e.matches && setMenu(false));
 async function nav(k) {
   app.querySelectorAll('aside a').forEach(a => a.classList.toggle('on', a.dataset.k === k)); moveInd();
+  const cur = app.querySelector(`aside a[data-k="${k}"]`), t = $('#mt'); if (t && cur) t.textContent = cur.textContent; setMenu(false);
   const late = setTimeout(() => { const m = app.querySelector('main'); if (m) m.innerHTML = SK; }, 160);
   try { await (SCREENS[k] || list)(k); } catch (e) { if (me) view(`<p class="err">${esc(e.message)}</p>`); } finally { clearTimeout(late); }
 }
