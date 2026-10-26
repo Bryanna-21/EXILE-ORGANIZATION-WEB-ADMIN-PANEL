@@ -108,3 +108,8 @@ html{-webkit-text-size-adjust:100%}img,canvas{max-width:100%}main{min-width:0;ov
 #tp>p{margin:8px 0}#tp{max-width:520px}#tp .dot{vertical-align:middle}
 .vw #tp .codes code{animation:kin .3s var(--ease) both}
 .steps .qr{color:#333;font-size:.85rem;min-width:200px;min-height:60px}
+
+/* ---- download links panel ---- */
+#dlp{max-width:860px}h3.sub{font-size:1rem;margin:26px 0 6px}.dlf{display:grid;grid-template-columns:1fr 1fr;gap:12px}td.acts{white-space:normal}td.acts .btn{margin:2px 4px 2px 0;min-height:36px;padding:5px 11px;font-size:.82rem;display:inline-block;text-decoration:none}
+@media(max-width:600px){.dlf{grid-template-columns:1fr}}
+.dlc{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:10px 0;display:grid;gap:8px}.dlc .top{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.dlc b{font-size:1.02rem;text-transform:capitalize}.chip{font-size:.75rem;border:1px solid var(--line);border-radius:999px;padding:1px 9px;color:var(--fg2)}.dlc .meta{color:var(--fg2);font-size:.85rem;word-break:break-all}.dlc .acts{display:flex;gap:8px;flex-wrap:wrap}.dlc .btn{display:inline-block;text-decoration:none;font-size:.82rem;padding:6px 12px;min-height:38px}

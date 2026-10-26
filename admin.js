@@ -185,6 +185,24 @@ function totpRecovery(codes) {
   $('#rck').onchange = e => { $('#rdn').disabled = !e.target.checked; };
   $('#rdn').onclick = () => totpPanel(true);
 }
+// ---- Download links: paste a link, pick a platform, done. Visitors then get a direct, counted download on the website. ----
+async function dlPanel(pid) {
+  const box = $('#dlp'); if (!box) return;
+  let r; try { r = await api('GET', `/products/${pid}/downloads`); } catch (e) { box.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+  const host = u => { try { return new URL(u).hostname; } catch { return ''; } };
+  box.innerHTML = (r.rows.length ? r.rows.map(x => `<div class="dlc"><div class="top"><b>${esc(x.platform)}</b><span class="chip">v${esc(x.version)}</span><span class="muted">${x.count} download${x.count === 1 ? '' : 's'}</span></div><div class="meta" title="${esc(x.url)}">${esc(host(x.url))}</div><div class="acts"><a class="btn" href="${esc(x.url)}" target="_blank" rel="noopener">Check file</a><button class="btn" type="button" data-cp="${esc(x.platform)}">Copy site link</button><button class="btn d" type="button" data-rm="${esc(x.platform)}">Remove</button></div></div>`).join('') : '<p class="muted">No download links yet. Add the first one below.</p>')
+    + `<h3 class="sub">Add or replace a link</h3><p class="muted">Paste a link to the file: a GitHub release, Google Drive, Dropbox, or your own server. Adding a link for a platform that already has one replaces it. Visitors click Download on the website and get the file directly.</p><div class="dlf"><div><label for="dlp_pl">Platform</label><input id="dlp_pl" list="dlp_pls" placeholder="android" autocapitalize="off" spellcheck="false"><datalist id="dlp_pls">${['android', 'windows', 'macos', 'linux', 'ios', 'web'].map(p => `<option value="${p}">`).join('')}</datalist></div><div><label for="dlp_v">Version</label><input id="dlp_v" placeholder="1.0.0" autocapitalize="off" spellcheck="false"></div></div><label for="dlp_u">Download link</label><input id="dlp_u" type="url" inputmode="url" placeholder="https://github.com/you/app/releases/download/v1.0.0/app.apk" autocapitalize="off" spellcheck="false"><p class="err" id="dlp_e" role="status"></p><div class="row"><button class="btn p" type="button" id="dlp_add">Add link</button></div>`;
+  box.querySelectorAll('[data-cp]').forEach(b => b.onclick = () => navigator.clipboard.writeText(`${r.base}/${b.dataset.cp}`).then(() => toast('Website download link copied'), () => toast('Copy failed', 1)));
+  box.querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => { if (!confirm(`Remove the ${b.dataset.rm} download? Visitors will no longer see it. Past download counts are kept.`)) return; try { await api('DELETE', `/products/${pid}/downloads/${b.dataset.rm}`); toast('Download removed'); dlPanel(pid); } catch (e) { toast(e.message, 1); } });
+  const add = async () => {
+    const btn = $('#dlp_add'), er = $('#dlp_e'); er.textContent = ''; btn.disabled = true; btn.classList.add('busy'); btn.textContent = 'Adding...';
+    try {
+      const j = await api('POST', `/products/${pid}/downloads`, { platform: $('#dlp_pl').value.trim(), version: $('#dlp_v').value.trim(), url: $('#dlp_u').value.trim() });
+      toast('Download link saved'); if (j.note) setTimeout(() => toast(j.note), 400); if (j.trusted_host) setTimeout(() => toast(`New download host allowed: ${j.trusted_host}`), 800); dlPanel(pid);
+    } catch (e) { er.textContent = e.message; shake(box); btn.disabled = false; btn.classList.remove('busy'); btn.textContent = 'Add link'; }
+  };
+  $('#dlp_add').onclick = add; $('#dlp_u').addEventListener('keydown', e => { if (e.key === 'Enter') add(); });
+}
 async function list(k, off = 0) {
   const E = ENT[k], r = await api('GET', `/${k}?limit=25&offset=${off}`);
   view(`<h1>${E.label}</h1><div class="row"><button class="btn p" id="add">+ Add</button></div><div class="tw"><table><tr>${E.cols.map(c => `<th>${c}</th>`).join('')}<th></th></tr>${r.rows.map(x => `<tr>${E.cols.map(c => `<td>${esc(x[c])}</td>`).join('')}<td><button class="btn" data-e="${x.id}">Edit</button>${E.qr ? ` <button class="btn" data-q="${x.id}">QR</button>` : ''}</td></tr>`).join('')}</table></div>
@@ -196,7 +214,8 @@ async function list(k, off = 0) {
 function form(k, row) {
   const E = ENT[k]; view(`<h1>${row ? 'Edit' : 'Add'} ${E.label}</h1>${E.f.map(f => field(f, row?.[f[0]])).join('')}<div class="row"><button class="btn p" id="sv">SAVE</button><button class="btn" id="bk">Back</button>${row ? '<button class="btn d" id="del">Delete</button>' : ''}</div>`);
   $('#bk').onclick = () => list(k);
-  $('#sv').onclick = e => withState(e.target, async () => { const b = collect(E.f); const s = row ? await api('PUT', `/${k}/${row.id}`, b) : await api('POST', `/${k}`, b); row = s; });
+  if (k === 'products') { app.querySelector('main').insertAdjacentHTML('beforeend', '<h2>Download links</h2><div id="dlp"></div>'); if (row) dlPanel(row.id); else $('#dlp').innerHTML = '<p class="muted">Save the product first, then add its download links here.</p>'; }
+  $('#sv').onclick = e => withState(e.target, async () => { const b = collect(E.f); const s = row ? await api('PUT', `/${k}/${row.id}`, b) : await api('POST', `/${k}`, b); row = s; if (k === 'products') dlPanel(s.id); });
   if (row) $('#del').onclick = () => { const m = document.createElement('div'); m.className = 'modal'; m.innerHTML = `<div role="alertdialog" aria-modal="true"><h3>Delete this item?</h3><p>This cannot be undone.</p><div class="row" style="justify-content:center"><button class="btn" id="c">Cancel</button><button class="btn d" id="y">Delete</button></div></div>`; document.body.append(m); m.querySelector('#c').focus(); m.querySelector('#c').onclick = () => closeModal(m); m.addEventListener('click', e => e.target === m && closeModal(m)); m.querySelector('#y').onclick = async () => { try { await api('DELETE', `/${k}/${row.id}`); closeModal(m); toast('Deleted successfully'); list(k); } catch (e) { toast(e.message, 1); } }; };
 }
 async function qr(a) {
