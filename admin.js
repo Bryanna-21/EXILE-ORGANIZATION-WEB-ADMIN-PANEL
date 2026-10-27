@@ -35,8 +35,10 @@ const field = ([n, t], v) => {
   return `<label for="${id}">${n}</label>${el}`;
 };
 const collect = fs => Object.fromEntries(fs.map(([n, t]) => { const e = $('#f_' + n); return [n, t === 'bool' ? e.checked : t === 'lines' ? e.value.split('\n').map(s => s.trim()).filter(Boolean) : t === 'num' ? (e.value === '' ? null : +e.value) : e.value]; }));
-const view = (h) => { const m = app.querySelector('main'); m.innerHTML = h; m.classList.remove('vw'); void m.offsetWidth; m.classList.add('vw'); polish(m); };
+const view = (h) => { const m = app.querySelector('main'); m.innerHTML = h; m.classList.remove('vw'); void m.offsetWidth; m.classList.add('vw'); polish(m); stack(m); };
 // Stagger children and count up stat numbers (transform/opacity only; skipped for reduced motion).
+// Phones: each table row becomes a card. Copies header text onto cells so CSS can label them.
+function stack(m) { m.querySelectorAll('.tw table').forEach(t => { const h = [...t.querySelectorAll('tr:first-child th')].map(x => x.textContent.trim()); if (!h.length) { t.classList.add('nolab'); return; } t.querySelectorAll('tr').forEach(tr => [...tr.children].forEach((c, i) => { if (c.tagName === 'TD' && h[i]) c.dataset.l = h[i]; })); }); }
 function polish(m) {
   const stag = (sel, max) => m.querySelectorAll(sel).forEach((el, i) => el.style.setProperty('--i', Math.min(i, max)));
   stag('.k', 8); stag('.bar', 10); stag('.days i', 30); stag('table tr', 14);
@@ -57,10 +59,20 @@ function wireEyes(root = app) {
     btn.textContent = show ? 'Hide' : 'Show'; btn.setAttribute('aria-pressed', show); btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password'); i.focus();
   });
 }
+// Step 2 of sign-in, shown only when the authenticator is on. Email and password stay in memory, nothing is stored.
+function codeStep(email, password) {
+  app.innerHTML = `<div class="login"><img src="logo.png" width="72" alt="Exile"><h1>Enter your code</h1><p class="muted">Open your authenticator app and enter the 6-digit code for Exile Admin. Lost your phone? Use one of your recovery codes.</p><label for="cd">Authenticator or recovery code</label><input id="cd" inputmode="text" autocomplete="one-time-code" autocapitalize="off" spellcheck="false" maxlength="9" placeholder="123456 or a1b2-c3d4"><p class="err" id="er" role="status"></p><button class="btn p" id="go">Verify and sign in</button><p class="alt"><a href="#" id="bk">Back</a></p></div>`;
+  $('#cd').focus();
+  $('#bk').onclick = e => { e.preventDefault(); login(); };
+  const go = async () => { const code = $('#cd').value.trim(), er = $('#er'), b = $('#go'); if (!code) { shake($('.login')); return er.textContent = 'Enter a code.'; } b.disabled = true; b.classList.add('busy'); b.textContent = 'Checking...'; try { const r = await api('POST', '/login', { email, password, code }); me = r; csrf = r.csrf; shell(); nav('dash'); } catch (e) { er.textContent = e.message; b.disabled = false; b.classList.remove('busy'); b.textContent = 'Verify and sign in'; shake($('.login')); $('#cd').select(); } };
+  $('#go').onclick = go; $('#cd').addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+  $('#cd').addEventListener('input', () => { if (/^\d{6}$/.test($('#cd').value.trim())) go(); });
+}
 function login(msg = '', ok = false) {
   app.innerHTML = `<div class="login"><img src="logo.png" width="72" alt="Exile"><h1>Exile Admin</h1><label for="em">Email</label><input id="em" type="email" autocomplete="username">${pwField('pw', 'Password', 'current-password')}<p class="${ok ? 'ok' : 'err'}" id="er" role="status">${esc(msg)}</p><button class="btn p" id="go">Sign in</button><p class="alt"><a href="#" id="fg">Forgot password?</a></p></div>`;
   wireEyes();
-  const go = async () => { const b = $('#go'); b.disabled = true; b.classList.add('busy'); b.textContent = 'Signing in...'; try { const r = await api('POST', '/login', { email: $('#em').value, password: $('#pw').value }); me = r; csrf = r.csrf; shell(); nav('dash'); } catch (e) { $('#er').className = 'err'; $('#er').textContent = e.message; b.disabled = false; b.classList.remove('busy'); b.textContent = 'Sign in'; shake($('.login')); } };
+  const done = r => { me = r; csrf = r.csrf; shell(); nav('dash'); };
+  const go = async () => { const b = $('#go'); b.disabled = true; b.classList.add('busy'); b.textContent = 'Signing in...'; try { const email = $('#em').value, password = $('#pw').value, r = await api('POST', '/login', { email, password }); if (r.need_code) return codeStep(email, password); done(r); } catch (e) { $('#er').className = 'err'; $('#er').textContent = e.message; b.disabled = false; b.classList.remove('busy'); b.textContent = 'Sign in'; shake($('.login')); } };
   $('#go').onclick = go; $('#pw').addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
   $('#fg').onclick = e => { e.preventDefault(); forgot($('#em').value); };
 }
